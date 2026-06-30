@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BUK QRAttend — Student Portal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  --navy:#0A1628; --slate:#1B2A45; --card:#162035;
+  --gold:#C9A84C; --gold-dim:#A8873A; --gold-glow:rgba(201,168,76,0.15);
+  --white:#F0F4FF; --muted:#8A9BC0; --border:rgba(138,155,192,0.15);
+  --error:#EF4444; --error-bg:rgba(239,68,68,0.1); --success:#22C55E;
+  --radius:12px; --radius-sm:8px; --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --transition: all 0.2s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;font-weight:700;line-height:1.2;}
+p{color:var(--muted);font-size:0.95rem;}
+a{color:var(--gold);text-decoration:none;}
+.page-wrapper{min-height:100vh;display:flex;flex-direction:column;}
+
+.navbar{background:rgba(10,22,40,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.navbar-brand{display:flex;align-items:center;gap:0.75rem;}
+.logo-icon{width:38px;height:38px;background:var(--gold);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.85rem;color:var(--navy);}
+.brand-text{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;color:var(--white);}
+.brand-text span{color:var(--gold);}
+.navbar-actions{display:flex;align-items:center;gap:1rem;}
+.navbar-user{font-size:0.85rem;color:var(--muted);}
+.navbar-user strong{color:var(--white);}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;}
+.card-header{margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);}
+.card-title{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600;color:var(--white);}
+.card-subtitle{font-size:0.8rem;color:var(--muted);margin-top:0.25rem;}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--gold);}
+.stat-value{font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:700;color:var(--gold);line-height:1;margin-bottom:0.35rem;}
+.stat-label{font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+
+.form-group{margin-bottom:1.25rem;}
+.form-label{display:block;font-size:0.82rem;font-weight:500;color:var(--muted);margin-bottom:0.45rem;text-transform:uppercase;letter-spacing:0.5px;}
+.form-control{width:100%;padding:0.75rem 1rem;background:var(--slate);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-size:0.95rem;font-family:'Inter',sans-serif;outline:none;transition:var(--transition);}
+.form-control:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow);}
+.form-control::placeholder{color:var(--muted);}
+select.form-control option{background:var(--slate);color:var(--white);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:600px){.form-row{grid-template-columns:1fr;}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem 1.5rem;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;border:none;transition:var(--transition);text-decoration:none;white-space:nowrap;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-primary{background:var(--gold);color:var(--navy);}
+.btn-primary:hover:not(:disabled){background:var(--gold-dim);transform:translateY(-1px);}
+.btn-outline{background:transparent;color:var(--gold);border:1px solid var(--gold);}
+.btn-outline:hover:not(:disabled){background:var(--gold-glow);}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover:not(:disabled){color:var(--white);border-color:var(--muted);}
+.btn-sm{padding:0.45rem 0.9rem;font-size:0.82rem;}
+.btn-full{width:100%;}
+
+.alert{padding:0.85rem 1rem;border-radius:var(--radius-sm);font-size:0.88rem;margin-bottom:1rem;display:none;}
+.alert.show{display:block;}
+.alert-error{background:var(--error-bg);border:1px solid rgba(239,68,68,0.3);color:#FCA5A5;}
+.alert-success{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#86EFAC;}
+.alert-info{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);}
+
+.table-wrapper{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:0.88rem;}
+thead{background:var(--slate);}
+thead th{padding:0.9rem 1rem;text-align:left;font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(27,42,69,0.5);}
+tbody td{padding:0.9rem 1rem;color:var(--white);vertical-align:middle;}
+
+.badge{display:inline-flex;align-items:center;padding:0.25rem 0.65rem;border-radius:99px;font-size:0.75rem;font-weight:600;}
+.badge-gold{background:var(--gold-glow);color:var(--gold);border:1px solid rgba(201,168,76,0.3);}
+.badge-success{background:rgba(34,197,94,0.1);color:#86EFAC;border:1px solid rgba(34,197,94,0.3);}
+.badge-error{background:var(--error-bg);color:#FCA5A5;border:1px solid rgba(239,68,68,0.3);}
+.chip{display:inline-flex;align-items:center;padding:0.2rem 0.6rem;border-radius:99px;font-size:0.75rem;font-weight:500;background:var(--slate);color:var(--muted);border:1px solid var(--border);}
+
+.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1rem;background:radial-gradient(ellipse at 20% 50%,rgba(201,168,76,0.05) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(27,42,69,0.8) 0%,transparent 60%),var(--navy);}
+.auth-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem;box-shadow:var(--shadow);}
+.auth-logo{text-align:center;margin-bottom:2rem;}
+.logo-badge{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:var(--gold);border-radius:var(--radius);margin-bottom:1rem;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1rem;color:var(--navy);}
+.auth-logo h1{font-size:1.5rem;color:var(--white);margin-bottom:0.25rem;}
+.auth-logo p{font-size:0.85rem;color:var(--muted);}
+.auth-tabs{display:flex;background:var(--slate);border-radius:var(--radius-sm);padding:4px;margin-bottom:1.75rem;gap:4px;}
+.auth-tab{flex:1;padding:0.6rem;text-align:center;font-size:0.85rem;font-weight:600;color:var(--muted);cursor:pointer;border-radius:6px;border:none;background:transparent;transition:var(--transition);}
+.auth-tab.active{background:var(--card);color:var(--gold);}
+.auth-footer{text-align:center;margin-top:1.5rem;font-size:0.82rem;color:var(--muted);}
+
+.dashboard{display:flex;min-height:calc(100vh - 65px);}
+.sidebar{width:240px;background:var(--card);border-right:1px solid var(--border);padding:1.5rem 0;flex-shrink:0;position:sticky;top:65px;height:calc(100vh - 65px);overflow-y:auto;}
+.sidebar-section{padding:0 1rem;margin-bottom:1.5rem;}
+.sidebar-label{font-size:0.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:0 0.5rem;margin-bottom:0.5rem;}
+.sidebar-nav a{display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;border-radius:var(--radius-sm);font-size:0.9rem;color:var(--muted);text-decoration:none;font-weight:500;transition:var(--transition);}
+.sidebar-nav a:hover,.sidebar-nav a.active{background:var(--gold-glow);color:var(--gold);}
+.nav-icon{font-size:1rem;width:20px;text-align:center;}
+.main-content{flex:1;padding:2rem;overflow-x:hidden;}
+@media(max-width:768px){.sidebar{display:none;}.main-content{padding:1rem;}}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
+.section-title{font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:700;color:var(--white);}
+.section-subtitle{font-size:0.85rem;color:var(--muted);margin-top:0.2rem;}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:0.4;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;margin:2rem auto;}
+.app-footer{text-align:center;padding:1.5rem;font-size:0.78rem;color:var(--muted);border-top:1px solid var(--border);margin-top:auto;}
+.app-footer span{color:var(--gold);}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.fade-in{animation:fadeIn 0.3s ease forwards;}
+.divider{border:none;border-top:1px solid var(--border);margin:1.5rem 0;}
+
+.buk-toast{position:fixed;bottom:2rem;right:2rem;background:var(--slate);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.85rem 1.25rem;font-size:0.88rem;color:var(--white);box-shadow:var(--shadow);z-index:9999;transform:translateY(20px);opacity:0;transition:all 0.3s ease;max-width:320px;}
+.buk-toast--visible{transform:translateY(0);opacity:1;}
+.buk-toast--success{border-left:3px solid var(--success);}
+.buk-toast--error{border-left:3px solid var(--error);}
+.buk-toast--info{border-left:3px solid var(--gold);}
+
+#qr-reader{width:100%;border-radius:var(--radius);overflow:hidden;}
+#qr-reader video{border-radius:var(--radius);}
+
+.attendance-ring{position:relative;width:80px;height:80px;}
+.attendance-ring svg{transform:rotate(-90deg);}
+.ring-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:0.85rem;font-weight:700;color:var(--white);}
+.progress-bar{width:100%;height:6px;background:var(--slate);border-radius:99px;overflow:hidden;margin-top:0.5rem;}
+.progress-fill{height:100%;background:var(--gold);border-radius:99px;transition:width 0.8s ease;}
+</style>
+</head>
+<body class="page-wrapper">
+
+<!-- ════════════════ AUTH SCREEN ════════════════ -->
+<div id="auth-screen" class="auth-page">
+  <div class="auth-card fade-in">
+    <div class="auth-logo">
+      <div class="logo-badge">BUK</div>
+      <h1>BUK QRAttend</h1>
+      <p>Student Portal</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <div id="login-form">
+      <div class="alert alert-error" id="login-error"></div>
+      <div class="form-group"><label class="form-label">Registration Number</label><input type="text" id="login-reg" class="form-control" placeholder="e.g. BUK/CSC/22/0001"/></div>
+      <div class="form-group"><label class="form-label">Password</label><input type="password" id="login-password" class="form-control" placeholder="Enter your password"/></div>
+      <button class="btn btn-primary btn-full" id="login-btn" onclick="handleLogin()">Sign In</button>
+      <div class="auth-footer">New student? <a href="#" onclick="switchTab('register')">Create account</a></div>
+    </div>
+
+    <div id="register-form" style="display:none;">
+      <div class="alert alert-error" id="reg-error"></div>
+      <div class="alert alert-success" id="reg-success"></div>
+      <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="reg-name" class="form-control" placeholder="Amina Bashir"/></div>
+      <div class="form-group"><label class="form-label">Registration Number</label><input type="text" id="reg-number" class="form-control" placeholder="e.g. BUK/CSC/22/0001"/></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Department</label><select id="reg-dept" class="form-control"><option value="">Select</option><option>Computer Science</option><option>Information Technology</option><option>Software Engineering</option><option>Cyber Security</option><option>Information Systems</option></select></div>
+        <div class="form-group"><label class="form-label">Level</label><select id="reg-level" class="form-control"><option value="">Select</option><option>100 Level</option><option>200 Level</option><option>300 Level</option><option>400 Level</option><option>500 Level</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Password</label><input type="password" id="reg-password" class="form-control" placeholder="Min. 8 characters"/></div>
+      <div class="form-group"><label class="form-label">Confirm Password</label><input type="password" id="reg-confirm" class="form-control" placeholder="Repeat password"/></div>
+      <button class="btn btn-primary btn-full" id="reg-btn" onclick="handleRegister()">Create Account</button>
+      <div class="auth-footer">Already registered? <a href="#" onclick="switchTab('login')">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ DASHBOARD SCREEN ════════════════ -->
+<div id="dashboard-screen" style="display:none;">
+
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="logo-icon">BUK</div>
+    <div class="brand-text">BUK <span>QRAttend</span> — Student</div>
+  </div>
+  <div class="navbar-actions">
+    <span class="navbar-user"><strong id="nav-name">—</strong></span>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Main</div>
+      <nav class="sidebar-nav">
+        <a href="#" class="active" data-section="overview" onclick="showSection(this)"><span class="nav-icon">📊</span> Overview</a>
+        <a href="#" data-section="scan" onclick="showSection(this)"><span class="nav-icon">📷</span> Scan QR</a>
+        <a href="#" data-section="history" onclick="showSection(this)"><span class="nav-icon">📋</span> My Attendance</a>
+        <a href="#" data-section="percentage" onclick="showSection(this)"><span class="nav-icon">📈</span> Attendance %</a>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <section id="section-overview" class="fade-in">
+      <div class="section-header">
+        <div><div class="section-title">My Dashboard</div><div class="section-subtitle" id="student-meta">—</div></div>
+        <button class="btn btn-primary btn-sm" onclick="document.querySelector('[data-section=\'scan\']').click()">📷 Scan QR</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="st-total">0</div><div class="stat-label">Classes Attended</div></div>
+        <div class="stat-card"><div class="stat-value" id="st-week">0</div><div class="stat-label">This Week</div></div>
+        <div class="stat-card"><div class="stat-value" id="st-courses">0</div><div class="stat-label">Courses</div></div>
+        <div class="stat-card"><div class="stat-value" id="st-avg">—%</div><div class="stat-label">Avg. Attendance</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Recent Attendance</div></div>
+        <div class="table-wrapper"><table>
+          <thead><tr><th>Course</th><th>Date</th><th>Time Scanned</th><th>Status</th></tr></thead>
+          <tbody id="recent-body"><tr><td colspan="4"><div class="spinner"></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="section-scan" style="display:none;" class="fade-in">
+      <div class="section-header"><div><div class="section-title">Scan QR Code</div><div class="section-subtitle">Point your camera at your lecturer's QR code</div></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" class="two-col">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Camera</div></div>
+          <div id="qr-reader"></div>
+          <div style="margin-top:1rem;display:flex;gap:0.75rem;">
+            <button class="btn btn-primary btn-sm" id="start-btn" onclick="startScan()">▶ Start Camera</button>
+            <button class="btn btn-ghost btn-sm" id="stop-btn" onclick="stopScan()" style="display:none;">■ Stop</button>
+          </div>
+          <hr class="divider"/>
+          <div class="card-title" style="font-size:0.9rem;margin-bottom:0.75rem;">Or enter token manually</div>
+          <div style="display:flex;gap:0.75rem;">
+            <input type="text" id="manual-token" class="form-control" placeholder="Paste token here"/>
+            <button class="btn btn-outline btn-sm" onclick="submitToken()" style="white-space:nowrap;">Submit</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Result</div></div>
+          <div id="scan-idle" class="empty-state"><div class="empty-icon">📷</div><p>Start your camera and scan the QR code shown by your lecturer.</p></div>
+          <div id="scan-result" style="display:none;"></div>
+        </div>
+      </div>
+      <style>@media(max-width:768px){.two-col{grid-template-columns:1fr!important}}</style>
+    </section>
+
+    <section id="section-history" style="display:none;" class="fade-in">
+      <div class="section-header"><div><div class="section-title">My Attendance History</div></div><button class="btn btn-outline btn-sm" onclick="loadHistory()">↻ Refresh</button></div>
+      <div class="card" style="padding:0;"><div class="table-wrapper"><table>
+        <thead><tr><th>Course</th><th>Title</th><th>Dept</th><th>Level</th><th>Date</th><th>Scanned At</th></tr></thead>
+        <tbody id="history-body"><tr><td colspan="6"><div class="spinner"></div></td></tr></tbody>
+      </table></div></div>
+    </section>
+
+    <section id="section-percentage" style="display:none;" class="fade-in">
+      <div class="section-header"><div><div class="section-title">Attendance Percentage</div><div class="section-subtitle">Your rate per course</div></div></div>
+      <div id="pct-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;"><div class="spinner"></div></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="app-footer">Proposed by <span>Faculty of Computing, Bayero University Kano</span></div>
+
+</div><!-- /dashboard-screen -->
+
+<script>
+// ════════════════ SUPABASE CONFIG ════════════════
+const SUPABASE_URL = 'https://giiipmlfyexwpxlgsbap.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpaWlwbWxmeWV4d3B4bGdzYmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MjAzNzYsImV4cCI6MjA5ODI5NjM3Nn0.fP9BxyEjIDXZY6dnO2T7PcZ1Vq7EICP72Orge57XZ2E';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ════════════════ HELPERS ════════════════
+function generateEmail(identifier, role) {
+  const clean = identifier.trim().toLowerCase().replace(/\s+/g,'').replace(/\//g,'_');
+  return `${role}_${clean}@bukqrattend.internal`;
+}
+function getCurrentUser(role){ const d=localStorage.getItem(`bukqrattend_${role}`); return d?JSON.parse(d):null; }
+function saveUserSession(role,u){ localStorage.setItem(`bukqrattend_${role}`,JSON.stringify(u)); }
+function clearUserSession(role){ localStorage.removeItem(`bukqrattend_${role}`); }
+function showToast(msg,type='success'){
+  const ex=document.querySelector('.buk-toast'); if(ex) ex.remove();
+  const t=document.createElement('div'); t.className=`buk-toast buk-toast--${type}`; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.classList.add('buk-toast--visible'),10);
+  setTimeout(()=>{t.classList.remove('buk-toast--visible'); setTimeout(()=>t.remove(),400);},3500);
+}
+function formatDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'}); }
+
+// ════════════════ APP STATE ════════════════
+let currentUser=null, html5Qr=null, scanning=false;
+
+window.addEventListener('load', async () => {
+  currentUser = getCurrentUser('student');
+  if (currentUser) {
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('dashboard-screen').style.display='block';
+    document.getElementById('nav-name').textContent = currentUser.name.split(' ')[0];
+    document.getElementById('student-meta').textContent = `${currentUser.regNumber} · ${currentUser.department} · ${currentUser.level}`;
+
+    // Check if URL has a QR token (came from scanning a printed/shared QR link)
+    const urlToken = new URLSearchParams(window.location.search).get('token');
+    if (urlToken) {
+      document.querySelector('[data-section="scan"]').click();
+      setTimeout(()=>processToken(urlToken), 400);
+    } else {
+      await loadOverview();
+    }
+  }
+});
+
+// ════════════════ AUTH ════════════════
+function switchTab(tab){
+  const isLogin = tab==='login';
+  document.getElementById('login-form').style.display = isLogin?'block':'none';
+  document.getElementById('register-form').style.display = isLogin?'none':'block';
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active', isLogin? i===0 : i===1));
+}
+function showAlert(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),5000); }
+function setBtn(id,loading,label){ const b=document.getElementById(id); b.disabled=loading; b.textContent=loading?'Please wait...':label; }
+
+async function handleLogin(){
+  const regNum=document.getElementById('login-reg').value.trim();
+  const password=document.getElementById('login-password').value;
+  if(!regNum||!password) return showAlert('login-error','Please fill in all fields.');
+  setBtn('login-btn',true,'Sign In');
+  try{
+    const email=generateEmail(regNum,'student');
+    const {data,error}=await db.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    const {data:student,error:pErr}=await db.from('students').select('*').eq('reg_number',regNum.toUpperCase()).single();
+    if(pErr||!student) throw new Error('Student profile not found.');
+    saveUserSession('student',{id:student.id,name:student.full_name,regNumber:student.reg_number,department:student.department,level:student.level,authId:data.user.id});
+    showToast('Welcome, '+student.full_name.split(' ')[0]+'!','success');
+    setTimeout(()=>window.location.reload(),700);
+  }catch(err){ showAlert('login-error', err.message||'Login failed. Check your credentials.'); }
+  finally{ setBtn('login-btn',false,'Sign In'); }
+}
+
+async function handleRegister(){
+  const name=document.getElementById('reg-name').value.trim();
+  const regNum=document.getElementById('reg-number').value.trim().toUpperCase();
+  const dept=document.getElementById('reg-dept').value;
+  const level=document.getElementById('reg-level').value;
+  const password=document.getElementById('reg-password').value;
+  const confirm=document.getElementById('reg-confirm').value;
+  if(!name||!regNum||!dept||!level||!password||!confirm) return showAlert('reg-error','All fields are required.');
+  if(password.length<8) return showAlert('reg-error','Password must be at least 8 characters.');
+  if(password!==confirm) return showAlert('reg-error','Passwords do not match.');
+  setBtn('reg-btn',true,'Create Account');
+  try{
+    const email=generateEmail(regNum,'student');
+    const {error:authErr}=await db.auth.signUp({email,password});
+    if(authErr) throw authErr;
+    const {error:insertErr}=await db.from('students').insert({full_name:name,reg_number:regNum,department:dept,level,email});
+    if(insertErr) throw insertErr;
+    showAlert('reg-success','✓ Account created! You can now sign in.');
+    setTimeout(()=>switchTab('login'),2000);
+  }catch(err){ showAlert('reg-error', err.message?.includes('already')?'This Registration Number is already registered.':err.message||'Registration failed.'); }
+  finally{ setBtn('reg-btn',false,'Create Account'); }
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter') return;
+  if(document.getElementById('auth-screen').style.display==='none') return;
+  const loginVisible=document.getElementById('login-form').style.display!=='none';
+  if(loginVisible) handleLogin(); else handleRegister();
+});
+
+function logout(){
+  stopScan();
+  db.auth.signOut();
+  clearUserSession('student');
+  window.location.href = window.location.pathname; // strip any ?token= from URL
+}
+
+// ════════════════ NAVIGATION ════════════════
+function showSection(link){
+  event.preventDefault();
+  const name=link.dataset.section;
+  document.querySelectorAll('main > section').forEach(s=>s.style.display='none');
+  document.getElementById('section-'+name).style.display='block';
+  document.querySelectorAll('.sidebar-nav a').forEach(a=>a.classList.remove('active'));
+  link.classList.add('active');
+  if(name==='history') loadHistory();
+  if(name==='percentage') loadPercentage();
+  if(name!=='scan') stopScan();
+}
+
+// ════════════════ OVERVIEW ════════════════
+async function loadOverview(){
+  const {data}=await db.from('attendance').select('*, sessions(*)').eq('student_id',currentUser.id).order('scanned_at',{ascending:false});
+  const all=data||[];
+  const weekAgo=new Date(Date.now()-7*86400000);
+  const thisWeek=all.filter(r=>new Date(r.scanned_at)>=weekAgo);
+  const courses=new Set(all.map(r=>r.sessions?.course_code).filter(Boolean));
+  document.getElementById('st-total').textContent=all.length;
+  document.getElementById('st-week').textContent=thisWeek.length;
+  document.getElementById('st-courses').textContent=courses.size;
+  const tbody=document.getElementById('recent-body');
+  if(!all.length){ tbody.innerHTML=`<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">✅</div><p>No attendance yet. Scan a QR code to start.</p></div></td></tr>`; return; }
+  tbody.innerHTML=all.slice(0,5).map(r=>`<tr><td><strong>${r.sessions?.course_code||'—'}</strong></td><td>${formatDate(r.sessions?.date||r.scanned_at)}</td><td>${new Date(r.scanned_at).toLocaleTimeString('en-GB')}</td><td><span class="badge badge-success">✓ Present</span></td></tr>`).join('');
+}
+
+// ════════════════ SCANNER ════════════════
+async function startScan(){
+  if(scanning) return;
+  try{
+    html5Qr=new Html5Qrcode('qr-reader');
+    await html5Qr.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},
+      async(decoded)=>{
+        await stopScan();
+        let token=decoded;
+        if(decoded.includes('token=')){
+          try{ const url=new URL(decoded.includes('://')?decoded:'https://x.com?'+decoded.split('?').pop()); token=url.searchParams.get('token')||decoded; }catch(e){}
+        }
+        await processToken(token);
+      },
+      ()=>{}
+    );
+    scanning=true;
+    document.getElementById('start-btn').style.display='none';
+    document.getElementById('stop-btn').style.display='inline-flex';
+  }catch(e){ showToast('Camera access denied. Allow camera permission and try again.','error'); }
+}
+async function stopScan(){
+  if(html5Qr&&scanning){ try{ await html5Qr.stop(); }catch(e){} scanning=false; }
+  document.getElementById('start-btn').style.display='inline-flex';
+  document.getElementById('stop-btn').style.display='none';
+}
+async function submitToken(){
+  const token=document.getElementById('manual-token').value.trim().toUpperCase();
+  if(!token) return showToast('Please enter a token.','error');
+  await processToken(token);
+}
+async function processToken(token){
+  document.getElementById('scan-idle').style.display='none';
+  document.getElementById('scan-result').style.display='block';
+  document.getElementById('scan-result').innerHTML='<div class="spinner"></div>';
+  try{
+    const cleanToken=token.replace(/\s/g,'').toUpperCase();
+    const {data:session,error}=await db.from('sessions').select('*').eq('qr_token',cleanToken).single();
+    if(error||!session) throw new Error('Invalid QR code. Session not found.');
+    if(new Date()>new Date(session.expires_at)) return showResult('expired',session,'This QR code has expired. Ask your lecturer to generate a new one.');
+    const {data:existing}=await db.from('attendance').select('id').eq('session_id',session.id).eq('student_id',currentUser.id).single();
+    if(existing) return showResult('duplicate',session,'You already marked attendance for this session.');
+    const {error:attErr}=await db.from('attendance').insert({session_id:session.id,student_id:currentUser.id});
+    if(attErr) throw attErr;
+    showResult('success',session,'Attendance marked successfully!');
+    loadOverview();
+  }catch(e){
+    document.getElementById('scan-result').innerHTML=`<div class="alert alert-error show" style="margin:0;">✕ ${e.message}</div><button class="btn btn-ghost btn-sm" style="margin-top:1rem;" onclick="resetScan()">Try Again</button>`;
+  }
+}
+function showResult(type,session,message){
+  const icons={success:'✅',expired:'⏰',duplicate:'⚠️'};
+  const cls={success:'alert-success',expired:'alert-error',duplicate:'alert-info'};
+  document.getElementById('scan-result').innerHTML=`<div style="text-align:center;padding:1rem;"><div style="font-size:3rem;margin-bottom:1rem;">${icons[type]}</div><div class="alert ${cls[type]} show" style="margin-bottom:1.25rem;">${message}</div><div class="card" style="text-align:left;margin-bottom:1rem;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;"><div><div class="form-label">Course</div><strong>${session.course_code}</strong></div><div><div class="form-label">Title</div><strong>${session.course_title}</strong></div><div><div class="form-label">Date</div>${formatDate(session.date)}</div><div><div class="form-label">Level</div>${session.level}</div></div></div><button class="btn btn-outline btn-sm" onclick="resetScan()">Scan Another</button></div>`;
+}
+function resetScan(){
+  document.getElementById('scan-idle').style.display='block';
+  document.getElementById('scan-result').style.display='none';
+  document.getElementById('manual-token').value='';
+}
+
+// ════════════════ HISTORY ════════════════
+async function loadHistory(){
+  const tbody=document.getElementById('history-body');
+  tbody.innerHTML=`<tr><td colspan="6"><div class="spinner"></div></td></tr>`;
+  const {data}=await db.from('attendance').select('*, sessions(*)').eq('student_id',currentUser.id).order('scanned_at',{ascending:false});
+  if(!data?.length){ tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>No attendance records yet.</p></div></td></tr>`; return; }
+  tbody.innerHTML=data.map(r=>`<tr><td><strong>${r.sessions?.course_code||'—'}</strong></td><td>${r.sessions?.course_title||'—'}</td><td><span class="chip">${r.sessions?.department||'—'}</span></td><td><span class="chip">${r.sessions?.level||'—'}</span></td><td>${formatDate(r.sessions?.date||r.scanned_at)}</td><td>${new Date(r.scanned_at).toLocaleTimeString('en-GB')}</td></tr>`).join('');
+}
+
+// ════════════════ PERCENTAGE ════════════════
+async function loadPercentage(){
+  const grid=document.getElementById('pct-grid');
+  grid.innerHTML='<div class="spinner"></div>';
+  try{
+    const {data:allSessions}=await db.from('sessions').select('*').eq('department',currentUser.department).eq('level',currentUser.level);
+    const {data:attended}=await db.from('attendance').select('session_id').eq('student_id',currentUser.id);
+    const attendedIds=new Set((attended||[]).map(a=>a.session_id));
+    const courseMap={};
+    (allSessions||[]).forEach(s=>{
+      if(!courseMap[s.course_code]) courseMap[s.course_code]={title:s.course_title,total:0,attended:0};
+      courseMap[s.course_code].total++;
+      if(attendedIds.has(s.id)) courseMap[s.course_code].attended++;
+    });
+    const courses=Object.entries(courseMap);
+    if(!courses.length){ grid.innerHTML=`<div class="empty-state"><div class="empty-icon">📈</div><p>No sessions found for your department and level yet.</p></div>`; return; }
+    const avg=Math.round(courses.reduce((s,[,c])=>s+(c.total>0?(c.attended/c.total)*100:0),0)/courses.length);
+    document.getElementById('st-avg').textContent=avg+'%';
+    const circ=2*Math.PI*28;
+    grid.innerHTML=courses.map(([code,c])=>{
+      const pct=c.total>0?Math.round((c.attended/c.total)*100):0;
+      const color=pct>=75?'#22C55E':pct>=50?'#C9A84C':'#EF4444';
+      const badge=pct>=75?'badge-success':pct>=50?'badge-gold':'badge-error';
+      const offset=circ-(pct/100)*circ;
+      return `<div class="card"><div style="display:flex;align-items:center;gap:1rem;"><div class="attendance-ring"><svg viewBox="0 0 64 64" width="80" height="80"><circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" stroke-width="6"/><circle cx="32" cy="32" r="28" fill="none" stroke="${color}" stroke-width="6" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round" style="transition:stroke-dashoffset 0.8s ease;"/></svg><div class="ring-text">${pct}%</div></div><div style="flex:1;"><div style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--white);margin-bottom:0.25rem;">${code}</div><div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">${c.title}</div><span class="badge ${badge}">${c.attended}/${c.total} classes</span></div></div><div class="progress-bar" style="margin-top:1rem;"><div class="progress-fill" style="width:${pct}%;background:${color};"></div></div></div>`;
+    }).join('');
+  }catch(e){ grid.innerHTML=`<div class="empty-state"><p style="color:var(--error);">Failed to load.</p></div>`; }
+}
+</script>
+</body>
+</html>
